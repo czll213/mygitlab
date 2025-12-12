@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}学生仪表盘 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-graduation-cap me-2"></i>欢迎回来，{{ student.first_name }}！
+        </h1>
+    </div>
+
+    <!-- 学生信息卡片 -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-body text-center">
+                    <img src="https://ui-avatars.com/api/?name={{ student.full_name|replace(' ', '+') }}&size=150&background=667eea&color=fff"
+                         alt="Profile Avatar"
+                         class="rounded-circle mb-3"
+                         style="width: 150px; height: 150px; object-fit: cover;">
+                    <h5>{{ student.full_name }}</h5>
+                    <p class="text-muted mb-1">学号：{{ student.student_id }}</p>
+                    <p class="text-muted mb-3">{{ student.major or '未申报专业' }}</p>
+                    <a href="{{ url_for('student.profile') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-user me-2"></i>查看资料
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8 col-lg-7">
+            <div class="row">
+                <!-- 课程总数卡片 -->
+                <div class="col-md-4 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        课程总数
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_courses }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-book fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 已完成课程卡片 -->
+                <div class="col-md-4 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        已完成
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.completed_courses }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 进行中课程卡片 -->
+                <div class="col-md-4 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        进行中
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.current_courses }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-clock fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 平均成绩卡片 -->
+                {% if stats.avg_grade > 0 %}
+                <div class="col-md-4 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        平均成绩
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.avg_grade }}%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">快速操作</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('student.courses') }}" class="text-decoration-none">
+                                <div class="card border-left-primary h-100 py-2">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-book fa-3x text-primary mb-2"></i>
+                                        <h6 class="text-primary">浏览课程</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('student.enrollments') }}" class="text-decoration-none">
+                                <div class="card border-left-success h-100 py-2">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-clipboard-list fa-3x text-success mb-2"></i>
+                                        <h6 class="text-success">我的选课</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('student.edit_profile') }}" class="text-decoration-none">
+                                <div class="card border-left-info h-100 py-2">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-user-edit fa-3x text-info mb-2"></i>
+                                        <h6 class="text-info">编辑资料</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 当前选课 -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">当前选课</h6>
+                    <a href="{{ url_for('student.enrollments') }}" class="btn btn-sm btn-outline-primary">查看全部</a>
+                </div>
+                <div class="card-body">
+                    {% if enrollments %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>课程代码</th>
+                                    <th>课程名称</th>
+                                    <th>授课教师</th>
+                                    <th>状态</th>
+                                    <th>成绩</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enrollment in enrollments[:5] %}
+                                <tr>
+                                    <td>{{ enrollment.course.course_code if enrollment.course else '不适用' }}</td>
+                                    <td>{{ enrollment.course.course_name if enrollment.course else '不适用' }}</td>
+                                    <td>{{ enrollment.course.instructor if enrollment.course else '不适用' }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if enrollment.status == 'completed' else 'primary' if enrollment.status == 'enrolled' else 'secondary' }}">
+                                            {{ enrollment.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if enrollment.grade %}
+                                            {{ enrollment.grade }}%
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-book-open fa-4x text-gray-300 mb-3"></i>
+                        <h5 class="text-gray-500">暂无选课记录</h5>
+                        <p class="text-gray-400">开始浏览并选择课程</p>
+                        <a href="{{ url_for('student.courses') }}" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>浏览课程
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 学业进度 -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">学业进度</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 最新公告 -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">公告</h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>欢迎使用学生管理系统！</strong><br>
+                        浏览可用课程，开始您的学术之旅。
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>课程注册</strong><br>
+                        请确保在截止日期前完成您的课程选课。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 学业进度图表
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    const progressChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['已完成', '进行中', '未开始'],
+            datasets: [{
+                data: [{{ stats.completed_courses }}, {{ stats.current_courses }}, {{ 10 - stats.total_courses }}],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(201, 203, 207, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(201, 203, 207, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

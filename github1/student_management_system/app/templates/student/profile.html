@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}个人资料 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user me-2"></i>个人资料
+                    </h4>
+                    <div>
+                        <a href="{{ url_for('student.edit_profile') }}" class="btn btn-warning btn-sm me-2">
+                            <i class="fas fa-edit"></i> 编辑资料
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td width="150"><strong>学号：</strong></td>
+                                    <td>{{ student.student_id }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>姓名：</strong></td>
+                                    <td>{{ student.first_name }}{{ student.last_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>邮箱：</strong></td>
+                                    <td>{{ student.email }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>电话：</strong></td>
+                                    <td>{{ student.phone or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>性别：</strong></td>
+                                    <td>
+                                        {% if student.gender == 'Male' %}男
+                                        {% elif student.gender == 'Female' %}女
+                                        {% else %}其他{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>专业：</strong></td>
+                                    <td>{{ student.major or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>入学年份：</strong></td>
+                                    <td>{{ student.enrollment_year or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>入学日期：</strong></td>
+                                    <td>{{ student.enrollment_date.strftime('%Y-%m-%d') if student.enrollment_date else '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>地址：</strong></td>
+                                    <td>{{ student.address or '未填写' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="mb-3">
+                                    {% if student.gender == 'Female' %}
+                                        <i class="fas fa-user-circle" style="font-size: 120px; color: #e91e63;"></i>
+                                    {% else %}
+                                        <i class="fas fa-user-circle" style="font-size: 120px; color: #2196f3;"></i>
+                                    {% endif %}
+                                </div>
+                                <h5>{{ student.first_name }}{{ student.last_name }}</h5>
+                                <p class="text-muted">{{ student.student_id }}</p>
+                                <p class="text-muted">{{ student.major or '专业未填写' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 学业统计 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">学业统计</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="p-3">
+                                <h4 class="text-primary">{{ enrollments|length }}</h4>
+                                <p class="mb-0">总选课数</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3">
+                                <h4 class="text-success">{{ enrollments|selectattr('status', 'completed')|list|length }}</h4>
+                                <p class="mb-0">已完成</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3">
+                                <h4 class="text-info">{{ enrollments|selectattr('status', 'enrolled')|list|length }}</h4>
+                                <p class="mb-0">进行中</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3">
+                                {% set completed_grades = enrollments|selectattr('status', 'completed')|selectattr('grade')|list %}
+                                {% set total_credits = enrollments|selectattr('status', 'completed')|map(attribute='course')|map(attribute='credits')|list|sum %}
+                                <h4 class="text-warning">
+                                    {% if completed_grades %}
+                                        {{ "%.1f"|format((completed_grades|sum(attribute='grade') / completed_grades|length)) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </h4>
+                                <p class="mb-0">平均成绩 / {{ total_credits or 0 }}学分</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
