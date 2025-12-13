@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}课程浏览 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-book me-2"></i>课程浏览
+        </h2>
+    </div>
+
+    <!-- 搜索和筛选栏 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('student.courses') }}" id="searchForm">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="search" id="searchInput"
+                                   placeholder="搜索课程代码或名称..."
+                                   value="{{ request.args.get('search', '') or search_term or '' }}">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearch" title="清空搜索">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                    </div>
+                    {% if search_term %}
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center text-muted">
+                            <small>搜索 "{{ search_term }}" 的结果</small>
+                            <a href="{{ url_for('student.courses') }}" class="btn btn-sm btn-link ms-2">显示全部</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 已选课程 -->
+    {% if enrolled_courses %}
+    <div class="mb-5" id="enrolledCoursesSection">
+        <h4 class="mb-3">
+            <i class="fas fa-check-circle me-2"></i>已选课程
+        </h4>
+        <div class="row">
+            {% for course in enrolled_courses %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 border-success">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                        <h6 class="mb-0 text-success">{{ course.course_code }}</h6>
+                        <span class="badge bg-success">已选课</span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ course.course_name }}</h5>
+                        <p class="card-text text-muted">
+                            {% if course.description %}
+                                {{ course.description[:100] }}{% if course.description|length > 100 %}...{% endif %}
+                            {% else %}
+                                暂无课程描述
+                            {% endif %}
+                        </p>
+
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-user-tie me-1"></i> {{ course.instructor or '未分配' }}
+                            </small><br>
+                            <small class="text-muted">
+                                <i class="fas fa-star me-1"></i> {{ course.credits }} 学分
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <button class="btn btn-success w-100" disabled>
+                            <i class="fas fa-check me-2"></i>已选课
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="mb-5" id="enrolledCoursesSection">
+        <!-- 隐藏的已选课程容器，用于AJAX更新 -->
+    </div>
+    {% endif %}
+
+    <!-- 可选课程 -->
+    <div id="availableCoursesSection">
+        <h4 class="mb-3">
+            <i class="fas fa-book me-2"></i>可选课程
+            {% if search_term %}
+            <small class="text-muted">({{ available_courses|length }} 个结果)</small>
+            {% endif %}
+        </h4>
+        <div class="row">
+            {% if available_courses %}
+                {% for course in available_courses %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-primary">{{ course.course_code }}</h6>
+                            <span class="badge bg-info">可选</span>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ course.course_name }}</h5>
+                            <p class="card-text text-muted">
+                                {% if course.description %}
+                                    {{ course.description[:100] }}{% if course.description|length > 100 %}...{% endif %}
+                                {% else %}
+                                    暂无课程描述
+                                {% endif %}
+                            </p>
+
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-user-tie me-1"></i> {{ course.instructor or '未分配' }}
+                                </small><br>
+                                <small class="text-muted">
+                                    <i class="fas fa-building me-1"></i> {{ course.department or '未分配院系' }}
+                                </small><br>
+                                <small class="text-muted">
+                                    <i class="fas fa-star me-1"></i> {{ course.credits }} 学分
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button type="button" class="btn btn-primary w-100 enroll-course"
+                                    data-course-id="{{ course.id }}" data-course-name="{{ course.course_name }}">
+                                <i class="fas fa-plus me-2"></i>选课
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="col-12">
+                <div class="text-center py-5">
+                    {% if search_term %}
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">未找到匹配的课程</h5>
+                    <p class="text-muted">没有找到包含 "{{ search_term }}" 的课程，请尝试其他关键词</p>
+                    <a href="{{ url_for('student.courses') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>显示全部课程
+                    </a>
+                    {% else %}
+                    <i class="fas fa-book fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无可选课程</h5>
+                    <p class="text-muted">您已经选了所有可用课程，或者当前没有开放选课的课程</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 选课确认模态框 -->
+<div class="modal fade" id="enrollModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认选课</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要选修课程 <strong id="courseName"></strong> 吗？</p>
+                <p class="text-muted small">选课后可以在"我的选课"中查看和管理</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmEnroll">
+                    <span class="spinner-border spinner-border-sm d-none" id="enrollSpinner"></span>
+                    确定选课
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 选课成功模态框 -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>选课成功
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle fa-4x text-success"></i>
+                </div>
+                <h5 id="successCourseName"></h5>
+                <p class="text-muted">恭喜您成功选修此课程！</p>
+                <p class="small text-muted">您可以在"我的选课"中查看已选课程</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="successOkBtn">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let enrollCourseId = null;
+    let enrollCourseName = null;
+    let isSubmitting = false; // 防止重复提交
+
+    // 初始绑定课程事件
+    bindCourseEvents();
+
+    // 确保事件只绑定一次，先解绑再绑定
+    $('.enroll-course').off('click.enroll').on('click.enroll', function() {
+        enrollCourseId = $(this).data('course-id');
+        enrollCourseName = $(this).data('course-name');
+        $('#courseName').text(enrollCourseName);
+        $('#enrollModal').modal('show');
+    });
+
+    $('#confirmEnroll').click(function() {
+        if (enrollCourseId && !isSubmitting) {
+            isSubmitting = true; // 防止重复点击
+            // 显示加载状态
+            $('#enrollSpinner').removeClass('d-none');
+            $('#confirmEnroll').prop('disabled', true);
+
+            // 发送AJAX请求
+            $.ajax({
+                url: '/student/courses/' + enrollCourseId + '/enroll',
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    // 隐藏确认框
+                    $('#enrollModal').modal('hide');
+
+                    if (response.success) {
+                        // 提取课程名称
+                        let courseName = enrollCourseName;
+                        if (response.message && response.message.includes('：')) {
+                            courseName = response.message.split('：')[1];
+                        }
+
+                        // 设置成功弹窗中的课程名称
+                        $('#successCourseName').text(courseName);
+                        // 显示成功弹窗
+                        $('#successModal').modal('show');
+                    } else {
+                        showAlert('选课失败：' + (response.message || '未知错误'), 'danger');
+                        // 恢复按钮状态
+                        resetEnrollButton();
+                    }
+                },
+                error: function(xhr) {
+                    // 隐藏确认框
+                    $('#enrollModal').modal('hide');
+
+                    // 尝试从错误响应中获取错误消息
+                    let errorMessage = '选课失败，请稍后重试';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    } else if (xhr.status === 500) {
+                        errorMessage = '服务器内部错误，请稍后重试';
+                    } else if (xhr.status === 400) {
+                        errorMessage = '请求参数错误';
+                    }
+                    showAlert('选课失败：' + errorMessage, 'danger');
+                    // 恢复按钮状态
+                    resetEnrollButton();
+                }
+            });
+        }
+    });
+
+    // 重置选课按钮状态的函数
+    function resetEnrollButton() {
+        $('#enrollSpinner').addClass('d-none');
+        $('#confirmEnroll').prop('disabled', false);
+        isSubmitting = false;
+    }
+
+    // 成功弹窗关闭后动态更新页面，而不是刷新整个页面
+    $('#successOkBtn').click(function() {
+        // 关闭成功弹窗
+        $('#successModal').modal('hide');
+
+        // 获取当前搜索条件
+        const searchValue = $('#searchInput').val();
+
+        // 使用AJAX重新获取课程数据
+        refreshCoursesData(searchValue);
+    });
+
+    // 动态刷新课程数据的函数
+    function refreshCoursesData(searchTerm = '') {
+        // 显示加载状态
+        const enrolledSection = $('#enrolledCoursesSection');
+        const availableSection = $('#availableCoursesSection');
+
+        if (enrolledSection.length) {
+            enrolledSection.fadeTo('fast', 0.5);
+        }
+        if (availableSection.length) {
+            availableSection.fadeTo('fast', 0.5);
+        }
+
+        // 构建URL
+        const url = searchTerm ? `/student/courses?search=${encodeURIComponent(searchTerm)}` : '/student/courses';
+
+        // 使用AJAX获取更新后的课程数据
+        $.get(url)
+            .done(function(html) {
+                // 解析返回的HTML
+                const $newContent = $('<div>').html(html);
+
+                // 更新已选课程部分
+                const newEnrolledCourses = $newContent.find('#enrolledCoursesSection').html();
+                if (newEnrolledCourses && enrolledSection.length) {
+                    enrolledSection.html(newEnrolledCourses).fadeTo('fast', 1);
+                }
+
+                // 更新可选课程部分
+                const newAvailableCourses = $newContent.find('#availableCoursesSection').html();
+                if (newAvailableCourses && availableSection.length) {
+                    availableSection.html(newAvailableCourses).fadeTo('fast', 1);
+                }
+
+                // 重新绑定事件处理器
+                bindCourseEvents();
+
+                console.log('课程数据已更新');
+            })
+            .fail(function(xhr) {
+                console.error('更新课程数据失败:', xhr.status);
+                // 如果AJAX失败，回退到页面刷新
+                setTimeout(() => location.reload(), 1000);
+            });
+    }
+
+    // 重新绑定课程相关的事件处理器
+    function bindCourseEvents() {
+        // 重新绑定选课按钮事件
+        $('.enroll-course').off('click').on('click', function() {
+            const courseId = $(this).data('course-id');
+            const courseName = $(this).data('course-name');
+            showEnrollModal(courseId, courseName);
+        });
+
+        // 重新绑定退课按钮事件
+        $('.drop-btn').off('click').on('click', function() {
+            const courseId = $(this).data('course-id');
+            const courseName = $(this).data('course-name');
+            showDropModal(courseId, courseName);
+        });
+    }
+
+    // 当选课确认框关闭时重置按钮状态
+    $('#enrollModal').on('hidden.bs.modal', function () {
+        resetEnrollButton();
+    });
+
+    // 搜索功能增强
+    $('#clearSearch').click(function() {
+        $('#searchInput').val('');
+        $('#searchForm').submit();
+    });
+
+    // 支持回车键搜索
+    $('#searchInput').keypress(function(e) {
+        if (e.which === 13) {
+            $('#searchForm').submit();
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

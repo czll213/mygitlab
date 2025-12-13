@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}添加选课 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>添加选课
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.create_enrollment') }}">
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label">学生 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="student_id" name="student_id" required>
+                                <option value="">选择学生</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}">
+                                    {{ student.student_id }} - {{ student.first_name }}{{ student.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="course_id" class="form-label">课程 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="course_id" name="course_id" required>
+                                <option value="">选择课程</option>
+                                {% for course in courses %}
+                                <option value="{{ course.id }}">
+                                    {{ course.course_code }} - {{ course.course_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="status" class="form-label">状态</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="enrolled" selected>进行中</option>
+                                <option value="dropped">已退课</option>
+                            </select>
+                            <small class="text-muted">新选课默认为"进行中"，成绩需要在成绩管理页面单独录入</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="enrollment_date" class="form-label">选课日期</label>
+                            <input type="date" class="form-control" id="enrollment_date" name="enrollment_date"
+                                   value="{{ today }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="remarks" class="form-label">备注</label>
+                            <textarea class="form-control" id="remarks" name="remarks" rows="2"
+                                      placeholder="选课备注信息..."></textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>功能说明：</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>此页面仅用于添加学生选课记录</li>
+                                <li>成绩录入请使用"录入成绩"功能</li>
+                                <li>新选课默认状态为"进行中"</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.enrollments') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>返回
+                            </a>
+                            <div>
+                                <a href="{{ url_for('admin.record_grade') }}" class="btn btn-success me-2">
+                                    <i class="fas fa-chart-line me-2"></i>录入成绩
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-user-plus me-2"></i>添加选课
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // 设置今天的日期为默认值
+    const today = new Date().toISOString().split('T')[0];
+    $('#enrollment_date').val(today);
+});
+</script>
+{% endblock %}
+{% endblock %}

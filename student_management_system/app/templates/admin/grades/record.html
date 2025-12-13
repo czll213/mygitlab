@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}录入成绩 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>录入成绩
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            {% for field, error in errors.items() %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="{{ url_for('admin.record_grade') }}">
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label">学生 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="student_id" name="student_id" required>
+                                <option value="">选择学生</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}" {% if form_data and form_data.student_id == student.id|string %}selected{% endif %}>
+                                    {{ student.student_id }} - {{ student.first_name }}{{ student.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">请选择已选课的学生</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="course_id" class="form-label">课程 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="course_id" name="course_id" required>
+                                <option value="">请先选择学生</option>
+                                {% for course in courses %}
+                                <option value="{{ course.id }}" {% if form_data and form_data.course_id == course.id|string %}selected{% endif %}>
+                                    {{ course.course_code }} - {{ course.course_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text" id="courseHelpText">请先选择学生，系统将自动显示该学生已选的课程</div>
+                        </div>
+
+                        <div class="mb-3" id="courseInfo" style="display: none;">
+                            <div class="card border-info">
+                                <div class="card-header bg-light py-2">
+                                    <h6 class="mb-0 text-info">
+                                        <i class="fas fa-info-circle me-2"></i>课程信息
+                                    </h6>
+                                </div>
+                                <div class="card-body py-2">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">课程代码：</small>
+                                            <div id="courseCodeInfo">-</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">学分：</small>
+                                            <div id="courseCreditsInfo">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">授课教师：</small>
+                                            <div id="courseInstructorInfo">-</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">选课日期：</small>
+                                            <div id="enrollmentDateInfo">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="grade" class="form-label">成绩 <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="grade" name="grade"
+                                   min="0" max="100" step="0.5" placeholder="0-100" required
+                                   value="{{ form_data.grade if form_data else '' }}">
+                            <div class="form-text" id="gradeHelpText">请输入0-100之间的成绩</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="remarks" class="form-label">备注</label>
+                            <textarea class="form-control" id="remarks" name="remarks" rows="3"
+                                      placeholder="成绩备注信息...">{{ form_data.remarks if form_data else '' }}</textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>注意：</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>只能为已选课的学生录入成绩</li>
+                                <li>录入成绩后，选课状态将自动更新为"已完成"</li>
+                                <li>成绩范围为0-100分</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.grades') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>返回成绩管理
+                            </a>
+                            <div>
+                                <a href="{{ url_for('admin.create_enrollment') }}" class="btn btn-outline-primary me-2">
+                                    <i class="fas fa-user-plus me-2"></i>添加选课
+                                </a>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save me-2"></i>录入成绩
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const studentSelect = document.getElementById('student_id');
+    const courseSelect = document.getElementById('course_id');
+    const courseInfoDiv = document.getElementById('courseInfo');
+    const courseHelpText = document.getElementById('courseHelpText');
+    const gradeHelpText = document.getElementById('gradeHelpText');
+    const submitBtn = document.querySelector('button[type="submit"]');
+
+    let studentCourses = []; // 存储学生已选的课程
+
+    // 学生选择变化时，获取该学生的已选课程
+    studentSelect.addEventListener('change', function() {
+        const studentId = this.value;
+
+        if (studentId) {
+            // 显示加载状态
+            courseSelect.disabled = true;
+            courseSelect.innerHTML = '<option value="">加载中...</option>';
+            courseHelpText.textContent = '正在获取该学生的已选课程...';
+
+            // 获取学生已选的课程
+            fetch(`/admin/api/student-courses/${studentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    studentCourses = data.courses || [];
+                    updateCourseOptions();
+                })
+                .catch(error => {
+                    console.error('获取课程失败:', error);
+                    courseHelpText.textContent = '获取课程失败，请刷新页面重试';
+                    courseSelect.innerHTML = '<option value="">获取课程失败</option>';
+                    courseSelect.disabled = true;
+                });
+        } else {
+            // 清空课程选项
+            courseSelect.innerHTML = '<option value="">请先选择学生</option>';
+            courseSelect.disabled = true;
+            courseInfoDiv.style.display = 'none';
+            courseHelpText.textContent = '请先选择学生，系统将自动显示该学生已选的课程';
+        }
+
+        // 重置课程信息和成绩
+        courseInfoDiv.style.display = 'none';
+        document.getElementById('grade').value = '';
+        validateForm();
+    });
+
+    // 更新课程选项
+    function updateCourseOptions() {
+        if (studentCourses.length === 0) {
+            courseSelect.innerHTML = '<option value="">该学生暂无已选课程</option>';
+            courseSelect.disabled = true;
+            courseHelpText.textContent = '该学生暂无已选课程，请先为学生添加选课记录';
+            courseInfoDiv.style.display = 'none';
+            return;
+        }
+
+        let optionsHTML = '<option value="">请选择课程</option>';
+
+        studentCourses.forEach(course => {
+            const gradeText = course.has_grade ? ` (已录入成绩: ${course.grade})` : ' (未录入成绩)';
+            const disabledAttr = course.has_grade ? 'disabled' : '';
+
+            optionsHTML += `<option value="${course.id}" ${disabledAttr}>
+                ${course.course_code} - ${course.course_name}${gradeText}
+            </option>`;
+        });
+
+        courseSelect.innerHTML = optionsHTML;
+        courseSelect.disabled = false;
+        courseHelpText.textContent = `找到 ${studentCourses.length} 门已选课程`;
+
+        // 如果已选课程全部都有成绩，给出提示
+        const coursesWithoutGrade = studentCourses.filter(course => !course.has_grade);
+        if (coursesWithoutGrade.length === 0) {
+            courseHelpText.textContent = '该学生所有课程已录入成绩，无需重复录入';
+        } else {
+            courseHelpText.textContent = `该学生有 ${coursesWithoutGrade.length} 门课程待录入成绩`;
+        }
+    }
+
+    // 课程选择变化时，显示课程信息
+    courseSelect.addEventListener('change', function() {
+        const courseId = this.value;
+
+        if (courseId && studentCourses.length > 0) {
+            const selectedCourse = studentCourses.find(course => course.id == courseId);
+
+            if (selectedCourse) {
+                // 显示课程信息
+                document.getElementById('courseCodeInfo').textContent = selectedCourse.course_code;
+                document.getElementById('courseCreditsInfo').textContent = selectedCourse.credits;
+                document.getElementById('courseInstructorInfo').textContent = selectedCourse.instructor || '未分配';
+                document.getElementById('enrollmentDateInfo').textContent = selectedCourse.enrollment_date || '未记录';
+
+                courseInfoDiv.style.display = 'block';
+
+                // 如果已有成绩，显示提示并禁用成绩输入
+                if (selectedCourse.has_grade) {
+                    document.getElementById('grade').value = selectedCourse.grade;
+                    document.getElementById('grade').disabled = true;
+                    gradeHelpText.textContent = '该课程已有成绩，无需重复录入';
+                    gradeHelpText.className = 'form-text text-warning';
+                } else {
+                    document.getElementById('grade').value = '';
+                    document.getElementById('grade').disabled = false;
+                    gradeHelpText.textContent = '请输入0-100之间的成绩';
+                    gradeHelpText.className = 'form-text';
+                }
+            }
+        } else {
+            // 隐藏课程信息
+            courseInfoDiv.style.display = 'none';
+            document.getElementById('grade').value = '';
+            document.getElementById('grade').disabled = false;
+            gradeHelpText.textContent = '请输入0-100之间的成绩';
+            gradeHelpText.className = 'form-text';
+        }
+
+        validateForm();
+    });
+
+    // 验证表单
+    function validateForm() {
+        const studentId = studentSelect.value;
+        const courseId = courseSelect.value;
+        const grade = document.getElementById('grade').value;
+
+        let isValid = true;
+        let errorMessage = '';
+
+        if (!studentId) {
+            isValid = false;
+            errorMessage = '请选择学生';
+        } else if (!courseId) {
+            isValid = false;
+            errorMessage = '请选择课程';
+        } else if (studentCourses.length > 0) {
+            const selectedCourse = studentCourses.find(course => course.id == courseId);
+            if (selectedCourse && selectedCourse.has_grade) {
+                isValid = false;
+                errorMessage = '该课程已有成绩';
+            } else if (!grade || grade < 0 || grade > 100) {
+                isValid = false;
+                errorMessage = '请输入有效的成绩（0-100）';
+            }
+        }
+
+        // 更新提交按钮状态
+        if (isValid) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '录入成绩';
+            submitBtn.classList.remove('btn-secondary');
+            submitBtn.classList.add('btn-success');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = errorMessage || '请填写完整信息';
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-secondary');
+        }
+    }
+
+    // 成绩输入变化时验证
+    document.getElementById('grade').addEventListener('input', validateForm);
+});
+</script>
+{% endblock %}
