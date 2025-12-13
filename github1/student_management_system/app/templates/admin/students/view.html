@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}学生详情 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-graduate me-2"></i>学生详情
+                    </h4>
+                    <div>
+                        <a href="{{ url_for('admin.edit_student', id=student.id) }}" class="btn btn-warning btn-sm me-2">
+                            <i class="fas fa-edit"></i> 编辑
+                        </a>
+                        <a href="{{ url_for('admin.students') }}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> 返回
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td width="150"><strong>学号：</strong></td>
+                                    <td>{{ student.student_id }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>姓名：</strong></td>
+                                    <td>{{ student.first_name }} {{ student.last_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>邮箱：</strong></td>
+                                    <td>{{ student.email }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>电话：</strong></td>
+                                    <td>{{ student.phone or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>性别：</strong></td>
+                                    <td>
+                                        {% if student.gender == 'Male' %}男
+                                        {% elif student.gender == 'Female' %}女
+                                        {% else %}其他{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>专业：</strong></td>
+                                    <td>{{ student.major or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>入学年份：</strong></td>
+                                    <td>{{ student.enrollment_year or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>入学日期：</strong></td>
+                                    <td>{{ student.enrollment_date.strftime('%Y-%m-%d') if student.enrollment_date else '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>地址：</strong></td>
+                                    <td>{{ student.address or '未填写' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>创建时间：</strong></td>
+                                    <td>{{ student.created_at.strftime('%Y-%m-%d %H:%M:%S') if student.created_at else '未知' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="mb-3">
+                                    {% if student.gender == 'Female' %}
+                                        <i class="fas fa-user-circle" style="font-size: 120px; color: #e91e63;"></i>
+                                    {% else %}
+                                        <i class="fas fa-user-circle" style="font-size: 120px; color: #2196f3;"></i>
+                                    {% endif %}
+                                </div>
+                                <h5>{{ student.first_name }} {{ student.last_name }}</h5>
+                                <p class="text-muted">{{ student.student_id }}</p>
+                                <p class="text-muted">{{ student.major or '专业未填写' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
