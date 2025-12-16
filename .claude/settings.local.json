@@ -5,7 +5,8 @@
       "Bash(dir:*)",
       "Bash(python:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
