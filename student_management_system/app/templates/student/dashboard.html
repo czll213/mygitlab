@@ -117,7 +117,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <a href="{{ url_for('student.courses') }}" class="text-decoration-none">
                                 <div class="card border-left-primary h-100 py-2">
                                     <div class="card-body text-center">
@@ -127,7 +127,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <a href="{{ url_for('student.enrollments') }}" class="text-decoration-none">
                                 <div class="card border-left-success h-100 py-2">
                                     <div class="card-body text-center">
@@ -137,7 +137,17 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('student.grades') }}" class="text-decoration-none">
+                                <div class="card border-left-warning h-100 py-2">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-bar fa-3x text-warning mb-2"></i>
+                                        <h6 class="text-warning">我的成绩</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
                             <a href="{{ url_for('student.edit_profile') }}" class="text-decoration-none">
                                 <div class="card border-left-info h-100 py-2">
                                     <div class="card-body text-center">

@@ -5,12 +5,27 @@
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="fas fa-user-graduate me-2"></i>学生管理
-        </h2>
-        <a href="{{ url_for('admin.create_student') }}" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>添加学生
-        </a>
+        <div class="d-flex align-items-center">
+            {% if search %}
+            <a href="{{ url_for('admin.students') }}" class="btn btn-secondary me-3">
+                <i class="fas fa-arrow-left me-2"></i>返回所有学生
+            </a>
+            {% endif %}
+            <h2>
+                <i class="fas fa-user-graduate me-2"></i>学生管理
+            </h2>
+        </div>
+        <div>
+            <form method="POST" action="{{ url_for('admin.create_user_accounts_for_students') }}"
+                  style="display: inline;" onsubmit="return confirm('确定要为没有用户账户的学生创建账户吗？默认密码为学号。')">
+                <button type="submit" class="btn btn-success me-2">
+                    <i class="fas fa-users me-2"></i>批量创建用户账户
+                </button>
+            </form>
+            <a href="{{ url_for('admin.create_student') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>添加学生
+            </a>
+        </div>
     </div>
 
     <!-- 搜索栏 -->
@@ -20,7 +35,7 @@
                 <div class="row">
                     <div class="col-md-4">
                         <input type="text" class="form-control" name="search" placeholder="搜索学号、姓名或邮箱..."
-                               value="{{ request.args.get('search', '') }}">
+                               value="{{ search }}">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-outline-primary w-100">
@@ -49,7 +64,7 @@
                             <th>电话</th>
                             <th>性别</th>
                             <th>专业</th>
-                            <th>状态</th>
+                            <th>登录账户</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -67,7 +82,15 @@
                             </td>
                             <td>{{ student.major or '-' }}</td>
                             <td>
-                                <span class="badge bg-success">活跃</span>
+                                {% if student.email in user_emails %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>已创建
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>未创建
+                                    </span>
+                                {% endif %}
                             </td>
                             <td>
                                 <a href="{{ url_for('admin.edit_student', student_id=student.id) }}"

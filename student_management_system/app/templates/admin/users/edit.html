@@ -43,10 +43,10 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="status" class="form-label">状态</label>
-                            <select class="form-select" id="status" name="status">
-                                <option value="active" {% if user.status == 'active' %}selected{% endif %}>活跃</option>
-                                <option value="inactive" {% if user.status == 'inactive' %}selected{% endif %}>未激活</option>
+                            <label for="is_active" class="form-label">状态</label>
+                            <select class="form-select" id="is_active" name="is_active">
+                                <option value="on" {% if user.is_active %}selected{% endif %}>活跃</option>
+                                <option value="off" {% if not user.is_active %}selected{% endif %}>未激活</option>
                             </select>
                         </div>
 

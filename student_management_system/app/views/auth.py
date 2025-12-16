@@ -23,30 +23,46 @@ def register():
         # Handle JSON requests
         if request.is_json:
             data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'message': '无效的请求数据'}), 400
+
+            # Strip whitespace from inputs
+            username = data.get('username', '').strip()
+            email = data.get('email', '').strip()
+            full_name = data.get('full_name', '').strip()
+            phone = data.get('phone', '').strip()
+            password = data.get('password', '')
+            confirm_password = data.get('confirm_password', '')
 
             # Validation
             errors = {}
 
-            if not data.get('username') or len(data['username']) < 4:
+            if not username or len(username) < 4:
                 errors['username'] = '用户名必须至少4个字符'
 
-            if not data.get('email') or not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
+            if not email or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
                 errors['email'] = '请输入有效的邮箱地址'
 
-            if not data.get('password') or len(data['password']) < 6:
+            # Phone validation (optional field)
+            if phone:
+                phone_digits = re.sub(r'\D', '', phone)
+                if len(phone_digits) < 7:
+                    errors['phone'] = '请输入有效的电话号码'
+
+            if not password or len(password) < 6:
                 errors['password'] = '密码必须至少6个字符'
 
-            if data.get('password') != data.get('confirm_password'):
+            if password != confirm_password:
                 errors['confirm_password'] = '两次输入的密码不匹配'
 
-            if not data.get('full_name'):
+            if not full_name:
                 errors['full_name'] = '请输入全名'
 
             # Check if username or email already exists
-            if User.query.filter_by(username=data.get('username')).first():
+            if username and User.query.filter_by(username=username).first():
                 errors['username'] = '用户名已存在'
 
-            if User.query.filter_by(email=data.get('email')).first():
+            if email and User.query.filter_by(email=email).first():
                 errors['email'] = '邮箱已存在'
 
             if errors:
@@ -54,13 +70,13 @@ def register():
 
             # Create new user
             user = User(
-                username=data['username'],
-                email=data['email'],
-                full_name=data['full_name'],
-                phone=data.get('phone', ''),
+                username=username,
+                email=email,
+                full_name=full_name,
+                phone=phone,
                 role=data.get('role', 'student')
             )
-            user.set_password(data['password'])
+            user.set_password(password)
 
             try:
                 db.session.add(user)
@@ -76,12 +92,12 @@ def register():
                 return jsonify({'success': False, 'message': '注册失败，请重试。'}), 500
 
         # Handle form submissions
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        full_name = request.form.get('full_name')
-        phone = request.form.get('phone', '')
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        full_name = request.form.get('full_name', '').strip()
+        phone = request.form.get('phone', '').strip()
         role = request.form.get('role', 'student')
 
         # Validation
@@ -92,6 +108,14 @@ def register():
         if not email or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             flash('请输入有效的邮箱地址', 'error')
             return render_template('auth/register.html')
+
+        # Phone validation (optional field)
+        if phone:
+            # Remove all non-digit characters for validation
+            phone_digits = re.sub(r'\D', '', phone)
+            if len(phone_digits) < 7:
+                flash('请输入有效的电话号码', 'error')
+                return render_template('auth/register.html')
 
         if not password or len(password) < 6:
             flash('密码必须至少6个字符', 'error')

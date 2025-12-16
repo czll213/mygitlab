@@ -94,34 +94,32 @@
                     <div class="row text-center">
                         <div class="col-md-3">
                             <div class="p-3">
-                                <h4 class="text-primary">{{ enrollments|length }}</h4>
+                                <h4 class="text-primary">{{ stats.total_courses }}</h4>
                                 <p class="mb-0">总选课数</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="p-3">
-                                <h4 class="text-success">{{ enrollments|selectattr('status', 'completed')|list|length }}</h4>
+                                <h4 class="text-success">{{ stats.completed_courses }}</h4>
                                 <p class="mb-0">已完成</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="p-3">
-                                <h4 class="text-info">{{ enrollments|selectattr('status', 'enrolled')|list|length }}</h4>
+                                <h4 class="text-info">{{ stats.current_courses }}</h4>
                                 <p class="mb-0">进行中</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="p-3">
-                                {% set completed_grades = enrollments|selectattr('status', 'completed')|selectattr('grade')|list %}
-                                {% set total_credits = enrollments|selectattr('status', 'completed')|map(attribute='course')|map(attribute='credits')|list|sum %}
                                 <h4 class="text-warning">
-                                    {% if completed_grades %}
-                                        {{ "%.1f"|format((completed_grades|sum(attribute='grade') / completed_grades|length)) }}
+                                    {% if stats.avg_grade > 0 %}
+                                        {{ stats.avg_grade }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </h4>
-                                <p class="mb-0">平均成绩 / {{ total_credits or 0 }}学分</p>
+                                <p class="mb-0">平均成绩 / {{ stats.total_credits }}学分</p>
                             </div>
                         </div>
                     </div>

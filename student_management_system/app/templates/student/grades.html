@@ -66,27 +66,49 @@
         </div>
     </div>
 
-    <!-- 筛选栏 -->
+    <!-- 筛选和搜索栏 -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="GET" action="{{ url_for('student.grades') }}">
-                <div class="row">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">搜索课程</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="search" name="search"
+                                   placeholder="输入课程名称或课程代码..."
+                                   value="{{ search_query or '' }}">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                        </div>
+                    </div>
                     <div class="col-md-3">
-                        <select class="form-select" name="status">
+                        <label for="status" class="form-label">状态筛选</label>
+                        <select class="form-select" id="status" name="status">
                             <option value="">所有状态</option>
                             <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
                             <option value="enrolled" {% if status_filter == 'enrolled' %}selected{% endif %}>进行中</option>
+                            <option value="dropped" {% if status_filter == 'dropped' %}selected{% endif %}>已退课</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="semester" class="form-label">学期筛选</label>
+                        <select class="form-select" id="semester" name="semester">
+                            <option value="">所有学期</option>
+                            {% for semester in available_semesters %}
+                            <option value="{{ semester }}" {% if semester_filter == semester %}selected{% endif %}>{{ semester }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <button type="submit" class="btn btn-outline-primary w-100">
-                            <i class="fas fa-search"></i> 筛选
-                        </button>
-                    </div>
-                    <div class="col-md-2">
-                        <a href="{{ url_for('student.grades') }}" class="btn btn-outline-secondary w-100">
-                            <i class="fas fa-undo"></i> 重置
-                        </a>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i> 搜索
+                            </button>
+                            <a href="{{ url_for('student.grades') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-undo me-1"></i> 重置
+                            </a>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -207,7 +229,7 @@
                 <ul class="pagination justify-content-center">
                     {% if enrollments.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('student.grades', page=enrollments.prev_num, status=status_filter) }}">
+                        <a class="page-link" href="{{ url_for('student.grades', page=enrollments.prev_num, search=search_query, status=status_filter, semester=semester_filter) }}">
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     </li>
@@ -217,7 +239,7 @@
                         {% if page_num %}
                             {% if page_num != enrollments.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('student.grades', page=page_num, status=status_filter) }}">
+                                <a class="page-link" href="{{ url_for('student.grades', page=page_num, search=search_query, status=status_filter, semester=semester_filter) }}">
                                     {{ page_num }}
                                 </a>
                             </li>
@@ -235,7 +257,7 @@
 
                     {% if enrollments.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('student.grades', page=enrollments.next_num, status=status_filter) }}">
+                        <a class="page-link" href="{{ url_for('student.grades', page=enrollments.next_num, search=search_query, status=status_filter, semester=semester_filter) }}">
                             <i class="fas fa-chevron-right"></i>
                         </a>
                     </li>
@@ -293,7 +315,9 @@ $(document).ready(function() {
         // 这里可以实现Excel导出功能
         let params = new URLSearchParams({
             format: 'excel',
-            status: '{{ status_filter or "" }}'
+            status: '{{ status_filter or "" }}',
+            search: '{{ search_query or "" }}',
+            semester: '{{ semester_filter or "" }}'
         });
         window.location.href = '/student/api/grades/export?' + params.toString();
     });

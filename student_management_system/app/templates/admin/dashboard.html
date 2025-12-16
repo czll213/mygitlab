@@ -75,6 +75,73 @@
         </div>
     </div>
 
+    <!-- 成绩统计 -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">成绩总数</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ grade_stats.total_grades }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">平均成绩</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.1f"|format(grade_stats.avg_grade) }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">最高成绩</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.1f"|format(grade_stats.highest_grade) }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-trophy fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">最低成绩</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.1f"|format(grade_stats.lowest_grade) }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-arrow-down fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 最近选课 -->
     <div class="row">
         <div class="col-lg-6">
@@ -130,7 +197,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-left-primary h-100 py-2">
                                 <div class="card-body text-center">
                                     <a href="{{ url_for('admin.create_user') }}" class="text-decoration-none">
@@ -140,7 +207,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-left-success h-100 py-2">
                                 <div class="card-body text-center">
                                     <a href="{{ url_for('admin.create_student') }}" class="text-decoration-none">
@@ -150,7 +217,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-left-info h-100 py-2">
                                 <div class="card-body text-center">
                                     <a href="{{ url_for('admin.create_course') }}" class="text-decoration-none">
@@ -160,12 +227,22 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <div class="card border-left-warning h-100 py-2">
                                 <div class="card-body text-center">
                                     <a href="{{ url_for('admin.create_enrollment') }}" class="text-decoration-none">
                                         <i class="fas fa-clipboard-list fa-3x text-warning mb-2"></i>
                                         <h6 class="text-warning">学生选课</h6>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-left-danger h-100 py-2">
+                                <div class="card-body text-center">
+                                    <a href="{{ url_for('admin.record_grade') }}" class="text-decoration-none">
+                                        <i class="fas fa-chart-bar fa-3x text-danger mb-2"></i>
+                                        <h6 class="text-danger">录入成绩</h6>
                                     </a>
                                 </div>
                             </div>
@@ -211,21 +288,23 @@
     const systemOverviewChart = new Chart(ctx1, {
         type: 'bar',
         data: {
-            labels: ['用户', '学生', '课程', '选课'],
+            labels: ['用户', '学生', '课程', '选课', '成绩'],
             datasets: [{
                 label: '总数',
-                data: [{{ stats.total_users }}, {{ stats.total_students }}, {{ stats.total_courses }}, {{ stats.total_enrollments }}],
+                data: [{{ stats.total_users }}, {{ stats.total_students }}, {{ stats.total_courses }}, {{ stats.total_enrollments }}, {{ grade_stats.total_grades }}],
                 backgroundColor: [
                     'rgba(54, 162, 235, 0.8)',
                     'rgba(75, 192, 192, 0.8)',
                     'rgba(255, 206, 86, 0.8)',
-                    'rgba(255, 159, 64, 0.8)'
+                    'rgba(255, 159, 64, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
                 ],
                 borderColor: [
                     'rgba(54, 162, 235, 1)',
                     'rgba(75, 192, 192, 1)',
                     'rgba(255, 206, 86, 1)',
-                    'rgba(255, 159, 64, 1)'
+                    'rgba(255, 159, 64, 1)',
+                    'rgba(220, 53, 69, 1)'
                 ],
                 borderWidth: 1
             }]

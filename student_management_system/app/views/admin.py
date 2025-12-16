@@ -16,6 +16,7 @@ admin_bp = Blueprint('admin', __name__)
 @login_required
 @admin_required
 def dashboard():
+    # 基础统计
     stats = {
         'total_users': User.query.count(),
         'total_students': Student.query.count(),
@@ -24,9 +25,124 @@ def dashboard():
         'active_users': User.query.filter_by(is_active=True).count()
     }
 
-    recent_enrollments = Enrollment.query.order_by(Enrollment.created_at.desc()).limit(5).all()
+    # 成绩统计
+    grade_stats = {
+        'total_grades': Enrollment.query.filter(Enrollment.grade.isnot(None)).count(),
+        'avg_grade': db.session.query(db.func.avg(Enrollment.grade)).filter(Enrollment.grade.isnot(None)).scalar() or 0,
+        'highest_grade': db.session.query(db.func.max(Enrollment.grade)).filter(Enrollment.grade.isnot(None)).scalar() or 0,
+        'lowest_grade': db.session.query(db.func.min(Enrollment.grade)).filter(Enrollment.grade.isnot(None)).scalar() or 0,
+        'completed_courses': Enrollment.query.filter_by(status='completed').count()
+    }
 
-    return render_template('admin/dashboard.html', stats=stats, recent_enrollments=recent_enrollments)
+    # 最近活动
+    recent_enrollments = Enrollment.query.order_by(Enrollment.created_at.desc()).limit(5).all()
+    recent_grades = Enrollment.query.filter(Enrollment.grade.isnot(None)).order_by(Enrollment.updated_at.desc()).limit(5).all()
+
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         grade_stats=grade_stats,
+                         recent_enrollments=recent_enrollments,
+                         recent_grades=recent_grades)
+
+# Batch activate inactive users
+@admin_bp.route('/users/activate-inactive', methods=['POST'])
+@login_required
+@admin_required
+def activate_inactive_users():
+    """激活所有未激活的用户"""
+    try:
+        # 获取所有未激活的用户
+        inactive_users = User.query.filter_by(is_active=False).all()
+        activated_count = 0
+
+        for user in inactive_users:
+            user.is_active = True
+            activated_count += 1
+
+        db.session.commit()
+
+        message = f'成功激活 {activated_count} 个用户账户'
+        if request.is_json:
+            return jsonify({'success': True, 'message': message})
+
+        flash(message, 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        error_message = f'激活用户失败: {str(e)}'
+        if request.is_json:
+            return jsonify({'success': False, 'message': error_message}), 500
+        flash(error_message, 'error')
+
+    return redirect(url_for('admin.users'))
+
+# Batch sync user and student data
+@admin_bp.route('/users/sync-student-data', methods=['POST'])
+@login_required
+@admin_required
+def sync_student_data():
+    """同步用户和学生数据"""
+    try:
+        # 获取所有学生用户
+        student_users = User.query.filter_by(role='student').all()
+        synced_count = 0
+        error_count = 0
+
+        for user in student_users:
+            try:
+                # 查找对应的学生记录
+                student = Student.query.filter_by(email=user.email).first()
+                if not student:
+                    # 如果通过邮箱找不到，尝试通过姓名匹配
+                    students_by_name = Student.query.filter(
+                        (Student.first_name == user.full_name.split()[0]) if user.full_name.split() else False
+                    ).all()
+
+                    # 如果找到匹配的，取第一个
+                    if students_by_name:
+                        student = students_by_name[0]
+                        student.email = user.email  # 同步邮箱
+
+                if student:
+                    # 同步基本信息
+                    student.email = user.email
+                    student.phone = user.phone or ''
+
+                    # 同步姓名
+                    if user.full_name:
+                        if ' ' in user.full_name:
+                            parts = user.full_name.split(' ', 1)
+                            student.first_name = parts[0]
+                            student.last_name = parts[1] if len(parts) > 1 else ''
+                        else:
+                            student.first_name = user.full_name
+                            student.last_name = ''
+
+                    synced_count += 1
+                else:
+                    error_count += 1
+
+            except Exception as e:
+                print(f"同步用户 {user.username} 时出错: {e}")
+                error_count += 1
+                continue
+
+        db.session.commit()
+
+        message = f'数据同步完成！成功同步 {synced_count} 个学生，失败 {error_count} 个'
+        if request.is_json:
+            return jsonify({'success': True, 'message': message})
+
+        flash(message, 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        error_message = f'数据同步失败: {str(e)}'
+        if request.is_json:
+            return jsonify({'success': False, 'message': error_message}), 500
+        flash(error_message, 'error')
+
+    return redirect(url_for('admin.users'))
 
 # User Management
 @admin_bp.route('/users')
@@ -39,9 +155,11 @@ def users():
     query = User.query
     if search:
         query = query.filter(
-            (User.username.contains(search)) |
-            (User.email.contains(search)) |
-            (User.full_name.contains(search))
+            db.or_(
+                User.username.like(f'%{search}%'),
+                User.email.like(f'%{search}%'),
+                User.full_name.like(f'%{search}%')
+            )
         )
 
     users = query.paginate(
@@ -182,8 +300,6 @@ def edit_user(user_id):
             user.set_password(data['password'])
 
         try:
-            db.session.commit()
-
             # Handle administrator record
             if user.is_admin() and not user.administrator:
                 admin = Administrator(
@@ -195,6 +311,28 @@ def edit_user(user_id):
             elif not user.is_admin() and user.administrator:
                 db.session.delete(user.administrator)
 
+            # If the user is a student, also update the student record
+            if user.is_student():
+                # Try to find student record by old email first, then by new email
+                student = Student.query.filter_by(email=user.email).first()
+                if not student:
+                    # If not found by old email, try finding by new email
+                    student = Student.query.filter_by(email=data['email']).first()
+
+                if student:
+                    # Update student record with the latest user information
+                    student.email = data['email']
+                    student.phone = data.get('phone', '')
+                    # Split full_name into first_name and last_name
+                    full_name = data['full_name']
+                    if ' ' in full_name:
+                        parts = full_name.split(' ', 1)
+                        student.first_name = parts[0]
+                        student.last_name = parts[1] if len(parts) > 1 else ''
+                    else:
+                        student.first_name = full_name
+                        student.last_name = ''
+
             db.session.commit()
 
             if request.is_json:
@@ -205,8 +343,8 @@ def edit_user(user_id):
         except Exception as e:
             db.session.rollback()
             if request.is_json:
-                return jsonify({'success': False, 'message': '用户更新失败'}), 500
-            flash('用户更新失败', 'error')
+                return jsonify({'success': False, 'message': f'用户更新失败: {str(e)}'}), 500
+            flash(f'用户更新失败: {str(e)}', 'error')
 
     return render_template('admin/users/edit.html', user=user)
 
@@ -261,7 +399,10 @@ def students():
         error_out=False
     )
 
-    return render_template('admin/students/index.html', students=students, search=search)
+    # 获取所有用户邮箱，用于检查学生是否有登录账户
+    user_emails = set(user.email for user in User.query.filter_by(role='student').all())
+
+    return render_template('admin/students/index.html', students=students, search=search, user_emails=user_emails)
 
 @admin_bp.route('/students/create', methods=['GET', 'POST'])
 @login_required
@@ -275,6 +416,12 @@ def create_student():
 
         if not data.get('student_id'):
             errors['student_id'] = '学号是必填项'
+
+        if not data.get('username') or len(data['username']) < 4:
+            errors['username'] = '用户名必须至少4个字符'
+
+        if not data.get('password') or len(data['password']) < 6:
+            errors['password'] = '密码必须至少6个字符'
 
         if not data.get('first_name'):
             errors['first_name'] = '名字是必填项'
@@ -292,6 +439,10 @@ def create_student():
         if Student.query.filter_by(email=data.get('email')).first():
             errors['email'] = '邮箱已存在'
 
+        # Check if username already exists in users table
+        if User.query.filter_by(username=data.get('username')).first():
+            errors['username'] = '用户名已存在'
+
         if errors and request.is_json:
             return jsonify({'success': False, 'errors': errors}), 400
 
@@ -300,34 +451,52 @@ def create_student():
                 flash(error, 'error')
             return render_template('admin/students/create.html')
 
-        # Create new student
-        student = Student(
-            student_id=data['student_id'],
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            birth_date=data.get('birth_date'),
-            gender=data.get('gender'),
-            email=data['email'],
-            phone=data.get('phone'),
-            address=data.get('address'),
-            major=data.get('major'),
-            enrollment_year=data.get('enrollment_year')
-        )
-
         try:
+            # First, create user account
+            user = User(
+                username=data['username'],
+                email=data['email'],
+                full_name=f"{data['first_name']} {data['last_name']}",
+                phone=data.get('phone', ''),
+                role='student',
+                is_active=True
+            )
+            user.set_password(data['password'])
+            db.session.add(user)
+            db.session.flush()  # Get the user ID without committing
+
+            # Create new student record
+            student = Student(
+                student_id=data['student_id'],
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                birth_date=data.get('birth_date'),
+                gender=data.get('gender'),
+                email=data['email'],
+                phone=data.get('phone'),
+                address=data.get('address'),
+                major=data.get('major'),
+                enrollment_year=data.get('enrollment_year')
+            )
             db.session.add(student)
             db.session.commit()
 
             if request.is_json:
-                return jsonify({'success': True, 'message': '学生创建成功', 'student': student.to_dict()})
+                return jsonify({
+                    'success': True,
+                    'message': '学生创建成功，用户账户已生成',
+                    'student': student.to_dict(),
+                    'user': user.to_dict()
+                })
 
-            flash('学生创建成功', 'success')
+            flash('学生创建成功，用户账户已生成', 'success')
             return redirect(url_for('admin.students'))
+
         except Exception as e:
             db.session.rollback()
             if request.is_json:
-                return jsonify({'success': False, 'message': '学生创建失败'}), 500
-            flash('学生创建失败', 'error')
+                return jsonify({'success': False, 'message': f'学生创建失败: {str(e)}'}), 500
+            flash(f'学生创建失败: {str(e)}', 'error')
 
     return render_template('admin/students/create.html')
 
@@ -356,6 +525,11 @@ def edit_student(student_id):
         if Student.query.filter(Student.email == data.get('email'), Student.id != student_id).first():
             errors['email'] = '邮箱已存在'
 
+        # Check if username exists (if username is being updated)
+        if data.get('username') and data.get('username') != student.email.split('@')[0]:
+            if User.query.filter(User.username == data.get('username')).first():
+                errors['username'] = '用户名已存在'
+
         if errors and request.is_json:
             return jsonify({'success': False, 'errors': errors}), 400
 
@@ -364,18 +538,34 @@ def edit_student(student_id):
                 flash(error, 'error')
             return render_template('admin/students/edit.html', student=student)
 
-        # Update student
-        student.first_name = data['first_name']
-        student.last_name = data['last_name']
-        student.birth_date = data.get('birth_date')
-        student.gender = data.get('gender')
-        student.email = data['email']
-        student.phone = data.get('phone')
-        student.address = data.get('address')
-        student.major = data.get('major')
-        student.enrollment_year = data.get('enrollment_year')
-
         try:
+            # Update student record
+            student.first_name = data['first_name']
+            student.last_name = data['last_name']
+            student.birth_date = data.get('birth_date')
+            student.gender = data.get('gender')
+            student.email = data['email']
+            student.phone = data.get('phone')
+            student.address = data.get('address')
+            student.major = data.get('major')
+            student.enrollment_year = data.get('enrollment_year')
+
+            # Find and update the corresponding user account (if exists)
+            user = User.query.filter_by(email=student.email).first()
+            if user:
+                # Update user info to match student info
+                user.email = data['email']
+                user.full_name = f"{data['first_name']} {data['last_name']}"
+                user.phone = data.get('phone', '')
+
+                # Update username if provided
+                if data.get('username'):
+                    user.username = data['username']
+
+                # Update password if provided
+                if data.get('password'):
+                    user.set_password(data['password'])
+
             db.session.commit()
 
             if request.is_json:
@@ -383,11 +573,12 @@ def edit_student(student_id):
 
             flash('学生更新成功', 'success')
             return redirect(url_for('admin.students'))
+
         except Exception as e:
             db.session.rollback()
             if request.is_json:
-                return jsonify({'success': False, 'message': '学生更新失败'}), 500
-            flash('学生更新失败', 'error')
+                return jsonify({'success': False, 'message': f'学生更新失败: {str(e)}'}), 500
+            flash(f'学生更新失败: {str(e)}', 'error')
 
     return render_template('admin/students/edit.html', student=student)
 
@@ -398,18 +589,102 @@ def delete_student(student_id):
     student = Student.query.get_or_404(student_id)
 
     try:
+        # Find and delete the corresponding user account (if exists)
+        user = User.query.filter_by(email=student.email).first()
+        if user:
+            db.session.delete(user)
+
         db.session.delete(student)
         db.session.commit()
 
         if request.is_json:
-            return jsonify({'success': True, 'message': '学生删除成功'})
+            return jsonify({'success': True, 'message': '学生删除成功，相关用户账户已删除'})
 
-        flash('学生删除成功', 'success')
+        flash('学生删除成功，相关用户账户已删除', 'success')
     except Exception as e:
         db.session.rollback()
         if request.is_json:
-            return jsonify({'success': False, 'message': '学生删除失败'}), 500
-        flash('学生删除失败', 'error')
+            return jsonify({'success': False, 'message': f'学生删除失败: {str(e)}'}), 500
+        flash(f'学生删除失败: {str(e)}', 'error')
+
+    return redirect(url_for('admin.students'))
+
+# Batch create user accounts for existing students
+@admin_bp.route('/students/create-user-accounts', methods=['POST'])
+@login_required
+@admin_required
+def create_user_accounts_for_students():
+    """为没有用户账户的现有学生创建账户"""
+    try:
+        # 获取所有学生记录
+        students = Student.query.all()
+        created_count = 0
+        skipped_count = 0
+
+        for student in students:
+            # 检查是否已有对应的用户账户（通过邮箱或学号查找）
+            existing_user = User.query.filter(
+                (User.email == student.email) | (User.username == student.student_id)
+            ).first()
+
+            if existing_user:
+                skipped_count += 1
+                continue
+
+            # 生成默认用户名（优先使用学号）
+            username = student.student_id
+
+            # 如果学号作为用户名已存在，尝试其他方式
+            if User.query.filter_by(username=username).first():
+                # 尝试使用邮箱前缀
+                email_prefix = student.email.split('@')[0]
+                if not User.query.filter_by(username=email_prefix).first():
+                    username = email_prefix
+                else:
+                    # 使用姓名拼音或简单组合
+                    name_part = student.first_name.lower()
+                    if student.last_name:
+                        name_part += student.last_name.lower()
+
+                    username = name_part
+                    counter = 1
+                    while User.query.filter_by(username=username).first():
+                        username = f"{name_part}{counter}"
+                        counter += 1
+
+            # 创建用户账户
+            user = User(
+                username=username,
+                email=student.email,
+                full_name=student.full_name,
+                phone=student.phone or '',
+                role='student',
+                is_active=True
+            )
+            # 设置默认密码为学号（确保学号不为空）
+            default_password = student.student_id if student.student_id else "123456"
+            user.set_password(default_password)
+
+            db.session.add(user)
+            created_count += 1
+
+        db.session.commit()
+
+        message = f'成功为 {created_count} 个学生创建用户账户，跳过 {skipped_count} 个已有账户的学生'
+        if created_count > 0:
+            message += f'。默认密码为学号，首次登录后请修改密码。'
+
+        if request.is_json:
+            return jsonify({'success': True, 'message': message})
+
+        flash(message, 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        error_message = f'批量创建用户账户失败: {str(e)}'
+        if request.is_json:
+            return jsonify({'success': False, 'message': error_message}), 500
+        flash(error_message, 'error')
 
     return redirect(url_for('admin.students'))
 
@@ -811,7 +1086,10 @@ def edit_enrollment(enrollment_id):
                 return jsonify({'success': False, 'message': '选课信息更新失败'}), 500
             flash('选课信息更新失败', 'error')
 
-    return render_template('admin/enrollments/edit.html', enrollment=enrollment)
+    # 获取所有学生和课程数据
+    students = Student.query.all()
+    courses = Course.query.all()
+    return render_template('admin/enrollments/edit.html', enrollment=enrollment, students=students, courses=courses)
 
 @admin_bp.route('/enrollments/<int:enrollment_id>/delete', methods=['POST'])
 @login_required

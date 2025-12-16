@@ -50,9 +50,23 @@
             transform: translateY(-2px);
         }
         .invalid-feedback {
-            display: block;
+            display: none;
             color: #dc3545;
             font-size: 0.875em;
+            margin-top: 0.25rem;
+        }
+
+        .form-control.is-invalid ~ .invalid-feedback {
+            display: block;
+        }
+
+        .form-control.is-invalid {
+            border-color: #dc3545;
+        }
+
+        .form-control.is-invalid:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
         }
     </style>
 </head>
@@ -183,56 +197,136 @@
                 }
             });
 
-            // Real-time validation
+            // Real-time validation (with delay to avoid showing errors while typing)
+            var validationTimer;
+
+            function validateUsername(username) {
+                return username.length >= 4;
+            }
+
+            function validateEmail(email) {
+                var emailRegex = /[^@]+@[^@]+\.[^@]+/;  // Match backend regex
+                return emailRegex.test(email);
+            }
+
+            function validatePhone(phone) {
+                // Phone is optional, if provided it should be a reasonable format
+                if (!phone) return true;  // Empty is allowed
+                var phoneRegex = /^[\d\s\-\+\(\)]+$/;
+                return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 7;
+            }
+
             $('#username').on('input', function() {
-                var username = $(this).val();
-                if (username.length < 4) {
-                    $(this).addClass('is-invalid');
-                } else {
-                    $(this).removeClass('is-invalid');
-                }
+                clearTimeout(validationTimer);
+                var $this = $(this);
+                var username = $this.val();
+
+                validationTimer = setTimeout(function() {
+                    if (username && !validateUsername(username)) {
+                        $this.addClass('is-invalid');
+                    } else {
+                        $this.removeClass('is-invalid');
+                    }
+                }, 500);  // 500ms delay
             });
 
             $('#email').on('input', function() {
-                var email = $(this).val();
-                var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    $(this).addClass('is-invalid');
-                } else {
-                    $(this).removeClass('is-invalid');
-                }
+                clearTimeout(validationTimer);
+                var $this = $(this);
+                var email = $this.val();
+
+                validationTimer = setTimeout(function() {
+                    if (email && !validateEmail(email)) {
+                        $this.addClass('is-invalid');
+                    } else {
+                        $this.removeClass('is-invalid');
+                    }
+                }, 500);
+            });
+
+            $('#phone').on('input', function() {
+                clearTimeout(validationTimer);
+                var $this = $(this);
+                var phone = $this.val();
+
+                validationTimer = setTimeout(function() {
+                    if (phone && !validatePhone(phone)) {
+                        $this.addClass('is-invalid');
+                    } else {
+                        $this.removeClass('is-invalid');
+                    }
+                }, 500);
             });
 
             $('#confirm_password').on('input', function() {
+                clearTimeout(validationTimer);
+                var $this = $(this);
                 var password = $('#password').val();
-                var confirmPassword = $(this).val();
+                var confirmPassword = $this.val();
 
-                if (password !== confirmPassword) {
-                    $(this).addClass('is-invalid');
-                } else {
-                    $(this).removeClass('is-invalid');
-                }
+                validationTimer = setTimeout(function() {
+                    if (confirmPassword && password !== confirmPassword) {
+                        $this.addClass('is-invalid');
+                    } else {
+                        $this.removeClass('is-invalid');
+                    }
+                }, 500);
             });
 
             // Form submission validation
             $('#registerForm').on('submit', function(e) {
                 var isValid = true;
+                var username = $('#username').val();
+                var email = $('#email').val();
+                var phone = $('#phone').val();
                 var password = $('#password').val();
                 var confirmPassword = $('#confirm_password').val();
+                var fullName = $('#full_name').val();
+                var role = $('#role').val();
 
-                if (password.length < 6) {
+                // Clear previous errors
+                $('.form-control').removeClass('is-invalid');
+
+                // Validate all fields
+                if (!username || !validateUsername(username)) {
+                    $('#username').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                if (!email || !validateEmail(email)) {
+                    $('#email').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                if (phone && !validatePhone(phone)) {
+                    $('#phone').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                if (!password || password.length < 6) {
                     $('#password').addClass('is-invalid');
                     isValid = false;
                 }
 
-                if (password !== confirmPassword) {
+                if (!confirmPassword || password !== confirmPassword) {
                     $('#confirm_password').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                if (!fullName) {
+                    $('#full_name').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                if (!role) {
+                    $('#role').addClass('is-invalid');
                     isValid = false;
                 }
 
                 if (!isValid) {
                     e.preventDefault();
-                    alert('请修正验证错误');
+                    // Focus on first invalid field
+                    $('.is-invalid').first().focus();
                 }
             });
         });

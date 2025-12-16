@@ -133,7 +133,8 @@
                         </div>
                         <div class="card-footer bg-transparent">
                             <button type="button" class="btn btn-primary w-100 enroll-course"
-                                    data-course-id="{{ course.id }}" data-course-name="{{ course.course_name }}">
+                                    data-course-id="{{ course.id }}" data-course-name="{{ course.course_name }}"
+                                    onclick="confirmEnroll({{ course.id }})">
                                 <i class="fas fa-plus me-2"></i>选课
                             </button>
                         </div>
@@ -209,171 +210,19 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
+// 确认选课函数
+function confirmEnroll(courseId) {
+    if (confirm('确定要选修这门课程吗？')) {
+        enrollInCourse(courseId);
+    }
+}
+
+// 搜索功能增强
 $(document).ready(function() {
-    let enrollCourseId = null;
-    let enrollCourseName = null;
-    let isSubmitting = false; // 防止重复提交
-
-    // 初始绑定课程事件
-    bindCourseEvents();
-
-    // 确保事件只绑定一次，先解绑再绑定
-    $('.enroll-course').off('click.enroll').on('click.enroll', function() {
-        enrollCourseId = $(this).data('course-id');
-        enrollCourseName = $(this).data('course-name');
-        $('#courseName').text(enrollCourseName);
-        $('#enrollModal').modal('show');
-    });
-
-    $('#confirmEnroll').click(function() {
-        if (enrollCourseId && !isSubmitting) {
-            isSubmitting = true; // 防止重复点击
-            // 显示加载状态
-            $('#enrollSpinner').removeClass('d-none');
-            $('#confirmEnroll').prop('disabled', true);
-
-            // 发送AJAX请求
-            $.ajax({
-                url: '/student/courses/' + enrollCourseId + '/enroll',
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/json'
-                },
-                dataType: 'json',
-                success: function(response) {
-                    // 隐藏确认框
-                    $('#enrollModal').modal('hide');
-
-                    if (response.success) {
-                        // 提取课程名称
-                        let courseName = enrollCourseName;
-                        if (response.message && response.message.includes('：')) {
-                            courseName = response.message.split('：')[1];
-                        }
-
-                        // 设置成功弹窗中的课程名称
-                        $('#successCourseName').text(courseName);
-                        // 显示成功弹窗
-                        $('#successModal').modal('show');
-                    } else {
-                        showAlert('选课失败：' + (response.message || '未知错误'), 'danger');
-                        // 恢复按钮状态
-                        resetEnrollButton();
-                    }
-                },
-                error: function(xhr) {
-                    // 隐藏确认框
-                    $('#enrollModal').modal('hide');
-
-                    // 尝试从错误响应中获取错误消息
-                    let errorMessage = '选课失败，请稍后重试';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
-                    } else if (xhr.status === 500) {
-                        errorMessage = '服务器内部错误，请稍后重试';
-                    } else if (xhr.status === 400) {
-                        errorMessage = '请求参数错误';
-                    }
-                    showAlert('选课失败：' + errorMessage, 'danger');
-                    // 恢复按钮状态
-                    resetEnrollButton();
-                }
-            });
-        }
-    });
-
-    // 重置选课按钮状态的函数
-    function resetEnrollButton() {
-        $('#enrollSpinner').addClass('d-none');
-        $('#confirmEnroll').prop('disabled', false);
-        isSubmitting = false;
-    }
-
-    // 成功弹窗关闭后动态更新页面，而不是刷新整个页面
-    $('#successOkBtn').click(function() {
-        // 关闭成功弹窗
-        $('#successModal').modal('hide');
-
-        // 获取当前搜索条件
-        const searchValue = $('#searchInput').val();
-
-        // 使用AJAX重新获取课程数据
-        refreshCoursesData(searchValue);
-    });
-
-    // 动态刷新课程数据的函数
-    function refreshCoursesData(searchTerm = '') {
-        // 显示加载状态
-        const enrolledSection = $('#enrolledCoursesSection');
-        const availableSection = $('#availableCoursesSection');
-
-        if (enrolledSection.length) {
-            enrolledSection.fadeTo('fast', 0.5);
-        }
-        if (availableSection.length) {
-            availableSection.fadeTo('fast', 0.5);
-        }
-
-        // 构建URL
-        const url = searchTerm ? `/student/courses?search=${encodeURIComponent(searchTerm)}` : '/student/courses';
-
-        // 使用AJAX获取更新后的课程数据
-        $.get(url)
-            .done(function(html) {
-                // 解析返回的HTML
-                const $newContent = $('<div>').html(html);
-
-                // 更新已选课程部分
-                const newEnrolledCourses = $newContent.find('#enrolledCoursesSection').html();
-                if (newEnrolledCourses && enrolledSection.length) {
-                    enrolledSection.html(newEnrolledCourses).fadeTo('fast', 1);
-                }
-
-                // 更新可选课程部分
-                const newAvailableCourses = $newContent.find('#availableCoursesSection').html();
-                if (newAvailableCourses && availableSection.length) {
-                    availableSection.html(newAvailableCourses).fadeTo('fast', 1);
-                }
-
-                // 重新绑定事件处理器
-                bindCourseEvents();
-
-                console.log('课程数据已更新');
-            })
-            .fail(function(xhr) {
-                console.error('更新课程数据失败:', xhr.status);
-                // 如果AJAX失败，回退到页面刷新
-                setTimeout(() => location.reload(), 1000);
-            });
-    }
-
-    // 重新绑定课程相关的事件处理器
-    function bindCourseEvents() {
-        // 重新绑定选课按钮事件
-        $('.enroll-course').off('click').on('click', function() {
-            const courseId = $(this).data('course-id');
-            const courseName = $(this).data('course-name');
-            showEnrollModal(courseId, courseName);
-        });
-
-        // 重新绑定退课按钮事件
-        $('.drop-btn').off('click').on('click', function() {
-            const courseId = $(this).data('course-id');
-            const courseName = $(this).data('course-name');
-            showDropModal(courseId, courseName);
-        });
-    }
-
-    // 当选课确认框关闭时重置按钮状态
-    $('#enrollModal').on('hidden.bs.modal', function () {
-        resetEnrollButton();
-    });
-
-    // 搜索功能增强
     $('#clearSearch').click(function() {
         $('#searchInput').val('');
         $('#searchForm').submit();
@@ -387,5 +236,4 @@ $(document).ready(function() {
     });
 });
 </script>
-{% endblock %}
 {% endblock %}

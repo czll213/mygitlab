@@ -63,7 +63,32 @@ def dashboard():
 @student_only
 def profile():
     student = Student.query.filter_by(email=current_user.email).first()
-    return render_template('student/profile.html', student=student)
+    if not student:
+        flash('未找到学生记录。请联系管理员。', 'error')
+        return redirect(url_for('student.dashboard'))
+
+    # Get student's enrollments for statistics
+    enrollments = Enrollment.query.filter_by(student_id=student.id).all()
+
+    # Calculate statistics
+    total_courses = len(enrollments)
+    completed_courses = len([e for e in enrollments if e.status == 'completed'])
+    current_courses = len([e for e in enrollments if e.status == 'enrolled'])
+
+    # Calculate average grade and total credits
+    completed_with_grades = [e for e in enrollments if e.status == 'completed' and e.grade is not None]
+    avg_grade = sum(e.grade for e in completed_with_grades) / len(completed_with_grades) if completed_with_grades else 0
+    total_credits = sum(e.course.credits for e in enrollments if e.status == 'completed')
+
+    stats = {
+        'total_courses': total_courses,
+        'completed_courses': completed_courses,
+        'current_courses': current_courses,
+        'avg_grade': round(avg_grade, 1),
+        'total_credits': total_credits
+    }
+
+    return render_template('student/profile.html', student=student, enrollments=enrollments, stats=stats)
 
 @student_bp.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
@@ -110,6 +135,11 @@ def edit_profile():
         student.enrollment_year = data.get('enrollment_year')
 
         try:
+            # Also update the corresponding user account
+            current_user.email = data['email']
+            current_user.full_name = f"{data['first_name']} {data['last_name']}"
+            current_user.phone = data.get('phone', '')
+
             db.session.commit()
 
             if request.is_json:
@@ -120,8 +150,8 @@ def edit_profile():
         except Exception as e:
             db.session.rollback()
             if request.is_json:
-                return jsonify({'success': False, 'message': '个人资料更新失败'}), 500
-            flash('个人资料更新失败', 'error')
+                return jsonify({'success': False, 'message': f'个人资料更新失败: {str(e)}'}), 500
+            flash(f'个人资料更新失败: {str(e)}', 'error')
 
     return render_template('student/profile_edit.html', student=student)
 
@@ -349,14 +379,38 @@ def grades():
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', '')
     semester_filter = request.args.get('semester', '')
+    search_query = request.args.get('search', '').strip()
 
-    # 只显示有成绩的记录
+    # 构建基础查询：只显示有成绩的记录
     query = Enrollment.query.filter_by(student_id=student.id).filter(Enrollment.grade.isnot(None)).join(Course)
 
+    # 应用搜索过滤器（按课程名称或课程代码）
+    if search_query:
+        query = query.filter(
+            db.or_(
+                Course.course_code.contains(search_query),
+                Course.course_name.contains(search_query)
+            )
+        )
+
+    # 应用状态过滤器
     if status_filter:
         query = query.filter(Enrollment.status == status_filter)
 
-    # 如果有学期筛选，可以在这里添加
+    # 应用学期过滤器
+    if semester_filter:
+        if '春季' in semester_filter:
+            year = semester_filter.replace('春季', '')
+            query = query.filter(
+                db.extract('year', Enrollment.enrollment_date) == year,
+                db.extract('month', Enrollment.enrollment_date) <= 6
+            )
+        elif '秋季' in semester_filter:
+            year = semester_filter.replace('秋季', '')
+            query = query.filter(
+                db.extract('year', Enrollment.enrollment_date) == year,
+                db.extract('month', Enrollment.enrollment_date) > 6
+            )
 
     enrollments = query.order_by(Enrollment.updated_at.desc()).paginate(
         page=page,
@@ -364,8 +418,23 @@ def grades():
         error_out=False
     )
 
-    # 计算统计信息
-    all_grades = [e.grade for e in enrollments.items if e.grade is not None]
+    # 获取所有可用学期（用于下拉菜单）
+    all_enrollments = Enrollment.query.filter_by(student_id=student.id).filter(Enrollment.grade.isnot(None)).all()
+    available_semesters = []
+    for enrollment in all_enrollments:
+        if enrollment.enrollment_date:
+            year = enrollment.enrollment_date.year
+            if enrollment.enrollment_date.month <= 6:
+                semester = f"{year}春季"
+            else:
+                semester = f"{year}秋季"
+            if semester not in available_semesters:
+                available_semesters.append(semester)
+    available_semesters.sort(reverse=True)  # 最新的学期在前
+
+    # 计算统计信息（基于搜索和过滤后的结果）
+    filtered_enrollments = query.all()
+    all_grades = [e.grade for e in filtered_enrollments if e.grade is not None]
     stats = {
         'total_courses': len(all_grades),
         'average_grade': sum(all_grades) / len(all_grades) if all_grades else 0,
@@ -376,6 +445,9 @@ def grades():
     return render_template('student/grades.html',
                          enrollments=enrollments,
                          status_filter=status_filter,
+                         semester_filter=semester_filter,
+                         search_query=search_query,
+                         available_semesters=available_semesters,
                          stats=stats)
 
 # API endpoints

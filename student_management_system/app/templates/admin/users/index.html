@@ -5,12 +5,33 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-users me-2"></i>用户管理
-        </h1>
-        <a href="{{ url_for('admin.create_user') }}" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>添加新用户
-        </a>
+        <div class="d-flex align-items-center">
+            {% if search %}
+            <a href="{{ url_for('admin.users') }}" class="btn btn-secondary me-3">
+                <i class="fas fa-arrow-left me-2"></i>返回所有用户
+            </a>
+            {% endif %}
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-users me-2"></i>用户管理
+            </h1>
+        </div>
+        <div>
+            <form method="POST" action="{{ url_for('admin.sync_student_data') }}"
+                  style="display: inline;" onsubmit="return confirm('确定要同步所有用户和学生数据吗？')">
+                <button type="submit" class="btn btn-info me-2">
+                    <i class="fas fa-sync me-2"></i>同步学生数据
+                </button>
+            </form>
+            <form method="POST" action="{{ url_for('admin.activate_inactive_users') }}"
+                  style="display: inline;" onsubmit="return confirm('确定要激活所有未激活的用户吗？')">
+                <button type="submit" class="btn btn-success me-2">
+                    <i class="fas fa-user-check me-2"></i>激活未激活用户
+                </button>
+            </form>
+            <a href="{{ url_for('admin.create_user') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>添加新用户
+            </a>
+        </div>
     </div>
 
     <!-- 搜索栏 -->
